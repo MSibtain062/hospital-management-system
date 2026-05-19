@@ -530,6 +530,7 @@ public:
         }
 
         patients.emplace_back(id, name, age, gender, disease, bloodGroup);
+        savePatientsToFile(owner);
         GuiShowMessage(owner, "Patient Added Successfully!", "Success");
     }
 
@@ -653,6 +654,7 @@ public:
         }
 
         doctors.emplace_back(id, name, age, gender, specialization, experience);
+        saveDoctorsToFile(owner);
         GuiShowMessage(owner, "Doctor Added Successfully!", "Success");
     }
 
@@ -761,6 +763,7 @@ public:
         }
 
         appointments.emplace_back(aid, pid, did, date, time);
+        saveAppointmentsToFile(owner);
         GuiShowMessage(owner, "Appointment Booked Successfully!", "Success");
     }
 
@@ -841,9 +844,6 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             case 2007: gHospital->searchDoctor(hwnd); break;
             case 2008: gHospital->bookAppointment(hwnd); break;
             case 2009: gHospital->viewAppointments(hwnd); break;
-            case 2010: gHospital->savePatientsToFile(hwnd); break;
-            case 2011: gHospital->saveDoctorsToFile(hwnd); break;
-            case 2012: gHospital->saveAppointmentsToFile(hwnd); break;
         }
     }
     if (uMsg == WM_DESTROY) {
@@ -910,12 +910,6 @@ int main() {
                     x2, yStart + 3 * yGap, buttonWidth, buttonHeight, hwnd, reinterpret_cast<HMENU>(2008), hInstance, NULL);
     CreateWindowExA(0, "BUTTON", "View Appointments", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                     x1, yStart + 4 * yGap, buttonWidth, buttonHeight, hwnd, reinterpret_cast<HMENU>(2009), hInstance, NULL);
-    CreateWindowExA(0, "BUTTON", "Save Patients", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                    x2, yStart + 4 * yGap, buttonWidth, buttonHeight, hwnd, reinterpret_cast<HMENU>(2010), hInstance, NULL);
-    CreateWindowExA(0, "BUTTON", "Save Doctors", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                    x1, yStart + 5 * yGap, buttonWidth, buttonHeight, hwnd, reinterpret_cast<HMENU>(2011), hInstance, NULL);
-    CreateWindowExA(0, "BUTTON", "Save Appointments", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                    x2, yStart + 5 * yGap, buttonWidth, buttonHeight, hwnd, reinterpret_cast<HMENU>(2012), hInstance, NULL);
 
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
