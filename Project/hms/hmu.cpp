@@ -1,4 +1,4 @@
-﻿#include <windows.h>
+#include <windows.h>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -18,7 +18,17 @@ struct InputState {
     string result;
 };
 
+struct LoginState {
+    HWND hwnd;
+    HWND hUsernameEdit;
+    HWND hPasswordEdit;
+    bool ok;
+    string username;
+    string password;
+};
+
 const char G_INPUT_CLASS[] = "HMS_InputBox_Class";
+const char G_LOGIN_CLASS[] = "HMS_Login_Class";
 
 LRESULT CALLBACK InputWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     InputState* state = reinterpret_cast<InputState*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
@@ -75,6 +85,115 @@ bool RegisterInputClass(HINSTANCE hInstance) {
     wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     return RegisterClassA(&wc) != 0 || GetLastError() == ERROR_CLASS_ALREADY_EXISTS;
+}
+
+LRESULT CALLBACK LoginWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    LoginState* state = reinterpret_cast<LoginState*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+
+    switch (uMsg) {
+        case WM_CREATE: {
+            CREATESTRUCTA* cs = reinterpret_cast<CREATESTRUCTA*>(lParam);
+            state = reinterpret_cast<LoginState*>(cs->lpCreateParams);
+            SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(state));
+
+            CreateWindowExA(0, "STATIC", "Username:", WS_CHILD | WS_VISIBLE | SS_LEFT,
+                            20, 20, 100, 20, hwnd, NULL, GetModuleHandle(NULL), NULL);
+
+            state->hUsernameEdit = CreateWindowExA(0, "EDIT", "", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
+                                                    20, 45, 260, 24, hwnd, reinterpret_cast<HMENU>(3001), GetModuleHandle(NULL), NULL);
+
+            CreateWindowExA(0, "STATIC", "Password:", WS_CHILD | WS_VISIBLE | SS_LEFT,
+                            20, 80, 100, 20, hwnd, NULL, GetModuleHandle(NULL), NULL);
+
+            state->hPasswordEdit = CreateWindowExA(0, "EDIT", "", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL | ES_PASSWORD,
+                                                    20, 105, 260, 24, hwnd, reinterpret_cast<HMENU>(3002), GetModuleHandle(NULL), NULL);
+
+            CreateWindowExA(0, "BUTTON", "Login", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                            80, 150, 80, 26, hwnd, reinterpret_cast<HMENU>(3003), GetModuleHandle(NULL), NULL);
+
+            CreateWindowExA(0, "BUTTON", "Exit", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                            180, 150, 80, 26, hwnd, reinterpret_cast<HMENU>(3004), GetModuleHandle(NULL), NULL);
+            return 0;
+        }
+        case WM_COMMAND:
+            if (LOWORD(wParam) == 3003) {
+                char usernameBuffer[256] = {};
+                char passwordBuffer[256] = {};
+                GetWindowTextA(state->hUsernameEdit, usernameBuffer, sizeof(usernameBuffer));
+                GetWindowTextA(state->hPasswordEdit, passwordBuffer, sizeof(passwordBuffer));
+                
+                state->username = usernameBuffer;
+                state->password = passwordBuffer;
+                
+                if (state->username == "admin" && state->password == "admin123123") {
+                    state->ok = true;
+                    DestroyWindow(hwnd);
+                } else {
+                    MessageBoxA(hwnd, "Invalid username or password!", "Login Failed", MB_OK | MB_ICONERROR);
+                    SetWindowTextA(state->hPasswordEdit, "");
+                    SetFocus(state->hUsernameEdit);
+                }
+                return 0;
+            } else if (LOWORD(wParam) == 3004) {
+                state->ok = false;
+                DestroyWindow(hwnd);
+                return 0;
+            }
+            break;
+        case WM_CLOSE:
+            state->ok = false;
+            DestroyWindow(hwnd);
+            return 0;
+        case WM_DESTROY:
+            return 0;
+    }
+
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+bool RegisterLoginClass(HINSTANCE hInstance) {
+    WNDCLASSA wc{};
+    wc.lpfnWndProc = LoginWndProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = G_LOGIN_CLASS;
+    wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    return RegisterClassA(&wc) != 0 || GetLastError() == ERROR_CLASS_ALREADY_EXISTS;
+}
+
+bool GuiShowLoginDialog(const char* title) {
+    HINSTANCE hInstance = GetModuleHandle(NULL);
+    if (!RegisterLoginClass(hInstance)) {
+        return false;
+    }
+
+    LoginState state{};
+    state.ok = false;
+
+    HWND dlg = CreateWindowExA(0, G_LOGIN_CLASS, title,
+                               WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
+                               CW_USEDEFAULT, CW_USEDEFAULT, 320, 220,
+                               NULL, NULL, hInstance, &state);
+    if (!dlg) {
+        return false;
+    }
+
+    ShowWindow(dlg, SW_SHOW);
+    UpdateWindow(dlg);
+    SetFocus(state.hUsernameEdit);
+
+    MSG msg = {};
+    while (IsWindow(dlg) && GetMessage(&msg, NULL, 0, 0) > 0) {
+        if (msg.hwnd == dlg || IsChild(dlg, msg.hwnd)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        } else {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+    }
+
+    return state.ok;
 }
 
 bool GuiInputText(HWND owner, const char* title, const char* prompt, string& out) {
@@ -735,6 +854,11 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 
 int main() {
+    // Show login dialog first
+    if (!GuiShowLoginDialog("Hospital Management System - Login")) {
+        return 0;
+    }
+
     HINSTANCE hInstance = GetModuleHandle(NULL);
     const char CLASS_NAME[] = "HMS_Main_Window";
 
